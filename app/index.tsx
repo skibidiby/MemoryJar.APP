@@ -2,8 +2,10 @@ import { useMigrations } from "drizzle-orm/expo-sqlite/migrator";
 import { SQLiteProvider } from "expo-sqlite";
 import React from "react";
 import { Text, View } from "react-native";
+import AddMemory from "../components/AddMemory/AddMemory";
+import MemoryJar from "../components/MemoryJar/MemoryJar";
+import { db } from "../db/client";
 import migrations from "../drizzle/migrations";
-import { db } from "./db/client";
 
 export default function Index() {
 	const { success, error } = useMigrations(db, migrations);
@@ -18,7 +20,8 @@ export default function Index() {
 					alignItems: "center",
 				}}
 			>
-				<Text>Edit app/index.tsx to edit this screen.</Text>
+				<AddMemory />
+				<MemoryJar />
 			</View>
 		</SQLiteProvider>
 	);

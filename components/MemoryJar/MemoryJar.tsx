@@ -1,5 +1,5 @@
-import { db } from "@/app/db/client";
-import { memories } from "@/app/db/schema";
+import { db } from "@/db/client";
+import { memories } from "@/db/schema";
 import { InferSelectModel } from "drizzle-orm";
 import { useEffect, useState } from "react";
 import { Text, View } from "react-native";
