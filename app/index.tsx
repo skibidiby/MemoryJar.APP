@@ -1,11 +1,9 @@
-import { drizzle } from "drizzle-orm/expo-sqlite";
 import { useMigrations } from "drizzle-orm/expo-sqlite/migrator";
-import { SQLiteProvider, openDatabaseSync } from "expo-sqlite";
+import { SQLiteProvider } from "expo-sqlite";
 import React from "react";
 import { Text, View } from "react-native";
 import migrations from "../drizzle/migrations";
-const expoDb = openDatabaseSync("db.db");
-const db = drizzle(expoDb);
+import { db } from "./db/client";
 
 export default function Index() {
 	const { success, error } = useMigrations(db, migrations);
