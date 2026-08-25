@@ -1,26 +1,21 @@
 import { db } from "@/db/client";
 import { memories } from "@/db/schema";
-import { InferSelectModel } from "drizzle-orm";
-import { useEffect, useState } from "react";
+import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { Text, View } from "react-native";
-
-type Memory = InferSelectModel<typeof memories>;
+import Particle from "../@elements/Particle/Particle";
 
 const MemoryJar = () => {
-	const [memoryList, setMemoryList] = useState<Memory[]>([]);
-	useEffect(() => {
-		fetchMemories();
-	}, []);
-
-	const fetchMemories = async () => {
-		const allMemories = await db.select().from(memories).all();
-		setMemoryList(allMemories);
-	};
+	const { data: memoryList } = useLiveQuery(db.select().from(memories));
 	return (
 		<View>
 			<Text>Memory Jar</Text>
 			{memoryList.map((memory) => (
-				<Text key={memory.id}>{memory.content}</Text>
+				<Particle
+					key={memory.id}
+					type={memory.type}
+					id={memory.id}
+					size={20}
+				/>
 			))}
 		</View>
 	);

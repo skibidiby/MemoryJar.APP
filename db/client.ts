@@ -1,8 +1,10 @@
 import { drizzle } from "drizzle-orm/expo-sqlite";
 import * as SQLite from "expo-sqlite";
-import migrations from "../drizzle/migrations"; // Adjust path
+import migrations from "../drizzle/migrations";
 
-export const expoDb = SQLite.openDatabaseSync("db.db");
+// SQLite.deleteDatabaseSync("db.db");
+
+export const expoDb = SQLite.openDatabaseSync("db.db", { enableChangeListener: true });
 export const db = drizzle(expoDb);
 export { migrations };
 

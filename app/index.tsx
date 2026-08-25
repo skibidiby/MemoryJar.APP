@@ -12,7 +12,7 @@ export default function Index() {
 	if (error) return <Text>Migration error: {error.message}</Text>;
 	if (!success) return <Text>Setting up database...</Text>;
 	return (
-		<SQLiteProvider databaseName="db.db">
+		<SQLiteProvider databaseName="db.db" options={{ enableChangeListener: true }}>
 			<View
 				style={{
 					flex: 1,
