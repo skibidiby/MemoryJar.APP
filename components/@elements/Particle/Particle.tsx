@@ -9,6 +9,8 @@ export interface ParticleProps {
 	type: ParticleType;
 	id: number;
 	size?: NumberProp;
+	width?: NumberProp;
+	height?: NumberProp;
 	style?: StyleProp<ViewStyle>;
 }
 
@@ -25,10 +27,12 @@ const ParticleIcon = ({ type, width, height }: { type: ParticleProps["type"]; wi
 	}
 };
 
-const Particle = ({ type, id, size, style }: ParticleProps) => {
+const Particle = ({ type, id, size, width, height, style }: ParticleProps) => {
+	const resolvedWidth = width ?? size;
+	const resolvedHeight = height ?? size;
 	return (
 		<View style={style} key={id}>
-			<ParticleIcon type={type} width={size} height={size} />
+			<ParticleIcon type={type} width={resolvedWidth} height={resolvedHeight} />
 		</View>
 	);
 };

@@ -1,4 +1,6 @@
 import { useMemoryTransition } from "@/components/MemoryTransition/MemoryTransition";
+import Particle, { ParticleType } from "@/components/@elements/Particle/Particle";
+import { COLORS, INDEX_LAYOUT, PARTICLE_DIMENSIONS, ParticleDimensions } from "@/constants/design";
 import { db } from "@/db/client";
 import { memories } from "@/db/schema";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
@@ -7,17 +9,14 @@ import { router } from "expo-router";
 import { Accelerometer, DeviceMotion, DeviceMotionOrientation } from "expo-sensors";
 import Matter from "matter-js";
 import { RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { LayoutChangeEvent, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { LayoutChangeEvent, Platform, Pressable, StyleSheet, View } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue } from "react-native-reanimated";
-import Particle from "../@elements/Particle/Particle";
 
-const PARTICLE_SIZE = 32;
-const PARTICLE_RADIUS = PARTICLE_SIZE / 2;
 const MAX_PARTICLES = 20;
 const WALL_THICKNESS = 40;
-const JAR_HEIGHT = 320;
-const JAR_PADDING = 16;
-const JAR_TOP_INSET = 36;
+const JAR_HEIGHT = INDEX_LAYOUT.jarHeight;
+const JAR_PADDING = INDEX_LAYOUT.jarPadding;
+const JAR_TOP_INSET = 0;
 const SENSOR_INTERVAL = 50;
 const GRAVITY_SMOOTHING = 0.18;
 const MAX_GRAVITY_COMPONENT = 1.5;
@@ -27,6 +26,14 @@ const MAX_FRAME_DELTA = 50;
 type Memory = typeof memories.$inferSelect;
 type ParticlePosition = { x: number; y: number; angle: number };
 type JarSize = { width: number; height: number };
+
+const dimensionsForType = (type: string): ParticleDimensions =>
+	PARTICLE_DIMENSIONS[type as ParticleType] ?? PARTICLE_DIMENSIONS.WARM;
+
+const radiusForType = (type: string) => {
+	const dimensions = dimensionsForType(type);
+	return Math.max(dimensions.width, dimensions.height) / 2;
+};
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 
@@ -54,6 +61,7 @@ const MemoryParticle = ({
 	freezeBody,
 	releaseBody,
 	jarRef,
+	dimensions,
 }: {
 	memory: Memory;
 	body: Matter.Body;
@@ -61,6 +69,7 @@ const MemoryParticle = ({
 	freezeBody: (id: number) => ParticlePosition | null;
 	releaseBody: () => void;
 	jarRef: RefObject<View | null>;
+	dimensions: ParticleDimensions;
 }) => {
 	const { activeMemoryId, beginTransition, isAnimating } = useMemoryTransition();
 	const x = useSharedValue(body.position.x);
@@ -78,8 +87,8 @@ const MemoryParticle = ({
 	}, [angle, body, engine, x, y]);
 
 	const animatedStyle = useAnimatedStyle(() => ({
-		left: x.value - PARTICLE_RADIUS,
-		top: y.value - PARTICLE_RADIUS,
+		left: x.value - dimensions.width / 2,
+		top: y.value - dimensions.height / 2,
 		transform: [{ rotate: `${angle.value}rad` }],
 	}));
 
@@ -93,10 +102,10 @@ const MemoryParticle = ({
 		if (!bodyPosition) return;
 		jarRef.current?.measureInWindow((jarX, jarY) => {
 			const transitioning = beginTransition(memory.id, memory.type, {
-				x: jarX + bodyPosition.x - PARTICLE_RADIUS,
-				y: jarY + bodyPosition.y - PARTICLE_RADIUS,
-				width: PARTICLE_SIZE,
-				height: PARTICLE_SIZE,
+				x: jarX + bodyPosition.x - dimensions.width / 2,
+				y: jarY + bodyPosition.y - dimensions.height / 2,
+				width: dimensions.width,
+				height: dimensions.height,
 				angle: bodyPosition.angle,
 			});
 			if (!transitioning) releaseBody();
@@ -108,10 +117,10 @@ const MemoryParticle = ({
 		<AnimatedPressable
 			onPress={openMemory}
 			disabled={isAnimating}
-			style={[styles.particle, animatedStyle]}
+			style={[styles.particle, { width: dimensions.width, height: dimensions.height }, animatedStyle]}
 		>
 			<View collapsable={false} style={{ opacity: activeMemoryId === memory.id ? 0 : 1 }}>
-				<Particle type={memory.type} id={memory.id} size={PARTICLE_SIZE} />
+				<Particle type={memory.type} id={memory.id} width={dimensions.width} height={dimensions.height} />
 			</View>
 		</AnimatedPressable>
 	);
@@ -177,21 +186,23 @@ const MemoryJar = () => {
 			}
 			Matter.Body.setPosition(body, {
 				x: body.position.x,
-				y: JAR_TOP_INSET + PARTICLE_RADIUS,
+				y: JAR_TOP_INSET + (body.circleRadius ?? PARTICLE_DIMENSIONS.WARM.width / 2),
 			});
 			Matter.Body.setVelocity(body, { x: 0, y: 0 });
 			jarRef.current.measureInWindow((jarX, jarY) => {
+				const memory = visibleMemoryList.find(({ id }) => id === activeMemoryId);
+				const dimensions = dimensionsForType(memory?.type ?? "WARM");
 				returnToSource(activeMemoryId, {
-					x: jarX + body.position.x - PARTICLE_RADIUS,
-					y: jarY + body.position.y - PARTICLE_RADIUS,
-					width: PARTICLE_SIZE,
-					height: PARTICLE_SIZE,
+					x: jarX + body.position.x - dimensions.width / 2,
+					y: jarY + body.position.y - dimensions.height / 2,
+					width: dimensions.width,
+					height: dimensions.height,
 					angle: body.angle,
 				});
 			});
 		});
 		return () => cancelAnimationFrame(frame);
-	}, [activeMemoryId, cancelTransition, isFocused, returnToSource, transitionPhase]);
+	}, [activeMemoryId, cancelTransition, isFocused, returnToSource, transitionPhase, visibleMemoryList]);
 
 	useEffect(() => {
 		if (activeMemoryId !== null || !frozenBodyRef.current) return;
@@ -239,9 +250,10 @@ const MemoryJar = () => {
 		wallsRef.current = createWalls(jarSize);
 		Matter.World.add(world, wallsRef.current);
 		bodiesRef.current.forEach((body) => {
+			const radius = body.circleRadius ?? PARTICLE_DIMENSIONS.WARM.width / 2;
 			Matter.Body.setPosition(body, {
-				x: clamp(body.position.x, JAR_PADDING + PARTICLE_RADIUS, jarSize.width - JAR_PADDING - PARTICLE_RADIUS),
-				y: clamp(body.position.y, JAR_TOP_INSET + PARTICLE_RADIUS, jarSize.height - JAR_PADDING - PARTICLE_RADIUS),
+				x: clamp(body.position.x, JAR_PADDING + radius, jarSize.width - JAR_PADDING - radius),
+				y: clamp(body.position.y, JAR_TOP_INSET + radius, jarSize.height - JAR_PADDING - radius),
 			});
 		});
 	}, [engine, jarSize]);
@@ -260,11 +272,13 @@ const MemoryJar = () => {
 		});
 		visibleMemoryList.forEach((memory) => {
 			if (bodiesRef.current.has(memory.id)) return;
-			const availableWidth = Math.max(0, jarSize.width - JAR_PADDING * 2 - PARTICLE_SIZE);
-			const availableSpawnHeight = Math.max(0, jarSize.height / 2 - JAR_TOP_INSET - PARTICLE_SIZE);
-			const x = JAR_PADDING + PARTICLE_RADIUS + Math.random() * availableWidth;
-			const y = JAR_TOP_INSET + PARTICLE_RADIUS + Math.random() * availableSpawnHeight;
-			const body = Matter.Bodies.circle(x, y, PARTICLE_RADIUS, {
+			const radius = radiusForType(memory.type);
+			const diameter = radius * 2;
+			const availableWidth = Math.max(0, jarSize.width - JAR_PADDING * 2 - diameter);
+			const availableSpawnHeight = Math.max(0, jarSize.height / 2 - JAR_TOP_INSET - diameter);
+			const x = JAR_PADDING + radius + Math.random() * availableWidth;
+			const y = JAR_TOP_INSET + radius + Math.random() * availableSpawnHeight;
+			const body = Matter.Bodies.circle(x, y, radius, {
 				restitution: 0.45,
 				friction: 0.08,
 				frictionAir: 0.012,
@@ -323,9 +337,9 @@ const MemoryJar = () => {
 
 	return (
 		<View ref={jarRef} collapsable={false} style={styles.jar} onLayout={handleLayout}>
-			<Text style={styles.title}>Memory Jar</Text>
 			{visibleMemoryList.map((memory) => {
 				const body = bodiesRef.current.get(memory.id);
+				const dimensions = dimensionsForType(memory.type);
 				return body ? (
 					<MemoryParticle
 						key={memory.id}
@@ -335,6 +349,7 @@ const MemoryJar = () => {
 						freezeBody={freezeBody}
 						releaseBody={releaseBody}
 						jarRef={jarRef}
+						dimensions={dimensions}
 					/>
 				) : null;
 			})}
@@ -343,9 +358,8 @@ const MemoryJar = () => {
 };
 
 const styles = StyleSheet.create({
-	jar: { width: "100%", height: JAR_HEIGHT, marginTop: "auto", overflow: "hidden" },
-	title: { position: "absolute", top: 8, left: 0, right: 0, textAlign: "center", zIndex: 1 },
-	particle: { position: "absolute", width: PARTICLE_SIZE, height: PARTICLE_SIZE },
+	jar: { width: "100%", height: JAR_HEIGHT, marginTop: "auto", overflow: "hidden", backgroundColor: COLORS.background },
+	particle: { position: "absolute" },
 });
 
 export default MemoryJar;
