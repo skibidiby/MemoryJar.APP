@@ -9,10 +9,10 @@ export type NewMemory = InferInsertModel<typeof memories>;
 
 const AddMemory = () => {
 	const [form, updateForm] = useImmer<NewMemory>({
-		title: "",
 		content: "",
-		intensity: 0,
-		createdAt: Date.now(),
+		type: "WARM",
+		location: "",
+		date: Date.now(),
 	});
 	const updateField = <K extends keyof NewMemory>(field: K, value: NewMemory[K]) => {
 		updateForm((draft) => {
@@ -22,21 +22,21 @@ const AddMemory = () => {
 	const SubmitMemory = async () => {
 		const finalMemory: NewMemory = {
 			...form,
-			createdAt: Date.now(),
+			date: Date.now(),
 		};
 		await db.insert(memories).values(finalMemory);
 		updateForm((draft) => {
-			draft.title = "";
 			draft.content = "";
-			draft.intensity = 0;
+			draft.type = "WARM";
+			draft.location = "";
 		});
 	};
 
 	return (
 		<View>
 			<Text>Add Memory</Text>
-			<Text>Title</Text>
-			<TextInput placeholder="Title" value={form.title} onChangeText={(text) => updateField("title", text)} />
+			<Text>Type</Text>
+			<TextInput placeholder="Type" value={form.type} onChangeText={(text) => updateField("type", text)} />
 			<Text>Content</Text>
 			<TextInput
 				placeholder="Content"
@@ -44,12 +44,11 @@ const AddMemory = () => {
 				value={form.content}
 				onChangeText={(text) => updateField("content", text)}
 			/>
-			<Text>Intensity</Text>
+			<Text>Location</Text>
 			<TextInput
-				placeholder="Intensity"
-				keyboardType="numeric"
-				value={String(form.intensity)}
-				onChangeText={(text) => updateField("intensity", Number(text))}
+				placeholder="Location"
+				value={form.location}
+				onChangeText={(text) => updateField("location", text)}
 			/>
 			<Button title="Add Memory" onPress={SubmitMemory} />
 		</View>
