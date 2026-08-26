@@ -4,7 +4,7 @@ import { memories } from "@/db/schema";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { useIsFocused } from "@react-navigation/native";
 import { router } from "expo-router";
-import { DeviceMotion, DeviceMotionOrientation } from "expo-sensors";
+import { Accelerometer, DeviceMotion, DeviceMotionOrientation } from "expo-sensors";
 import Matter from "matter-js";
 import { RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LayoutChangeEvent, Platform, Pressable, StyleSheet, Text, View } from "react-native";
@@ -277,16 +277,33 @@ const MemoryJar = () => {
 	}, [engine, jarSize, visibleMemoryList]);
 
 	useEffect(() => {
-		let subscription: ReturnType<typeof DeviceMotion.addListener> | undefined;
+		let subscription: { remove: () => void } | undefined;
 		let cancelled = false;
 		let smoothed = { x: 0, y: 1 };
 		const setFallbackGravity = () => {
 			engine.gravity.x = 0;
 			engine.gravity.y = 1;
 		};
+		const applyGravity = (gravity: { x: number; y: number }, smoothing = GRAVITY_SMOOTHING) => {
+			smoothed = {
+				x: smoothed.x + (clamp(gravity.x, -MAX_GRAVITY_COMPONENT, MAX_GRAVITY_COMPONENT) - smoothed.x) * smoothing,
+				y: smoothed.y + (clamp(gravity.y, -MAX_GRAVITY_COMPONENT, MAX_GRAVITY_COMPONENT) - smoothed.y) * smoothing,
+			};
+			engine.gravity.x = smoothed.x;
+			engine.gravity.y = smoothed.y;
+		};
 		const subscribe = async () => {
 			setFallbackGravity();
-			if (Platform.OS === "web" || !(await DeviceMotion.isAvailableAsync()) || cancelled) return;
+			if (Platform.OS === "web") return;
+			if (Platform.OS === "android") {
+				Accelerometer.setUpdateInterval(200);
+				subscription = Accelerometer.addListener(({ x, y }) => {
+					if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+					applyGravity({ x: -x, y }, 0.45);
+				});
+				return;
+			}
+			if (!(await DeviceMotion.isAvailableAsync()) || cancelled) return;
 			let permission = await DeviceMotion.getPermissionsAsync();
 			if (!permission.granted && permission.canAskAgain) permission = await DeviceMotion.requestPermissionsAsync();
 			if (!permission.granted || cancelled) return;
@@ -294,13 +311,7 @@ const MemoryJar = () => {
 			subscription = DeviceMotion.addListener(({ accelerationIncludingGravity, orientation }) => {
 				const { x, y } = accelerationIncludingGravity;
 				if (!Number.isFinite(x) || !Number.isFinite(y)) return;
-				const gravity = gravityForScreen(x, y, orientation);
-				smoothed = {
-					x: smoothed.x + (clamp(gravity.x, -MAX_GRAVITY_COMPONENT, MAX_GRAVITY_COMPONENT) - smoothed.x) * GRAVITY_SMOOTHING,
-					y: smoothed.y + (clamp(gravity.y, -MAX_GRAVITY_COMPONENT, MAX_GRAVITY_COMPONENT) - smoothed.y) * GRAVITY_SMOOTHING,
-				};
-				engine.gravity.x = smoothed.x;
-				engine.gravity.y = smoothed.y;
+				applyGravity(gravityForScreen(x, y, orientation));
 			});
 		};
 		subscribe().catch(setFallbackGravity);
