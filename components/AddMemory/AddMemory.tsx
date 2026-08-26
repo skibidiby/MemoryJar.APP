@@ -36,7 +36,11 @@ const AddMemory = () => {
 		<View>
 			<Text>Add Memory</Text>
 			<Text>Type</Text>
-			<TextInput placeholder="Type" value={form.type} onChangeText={(text) => updateField("type", text)} />
+			<TextInput
+				placeholder="Type"
+				value={form.type}
+				onChangeText={(text) => updateField("type", text.toUpperCase() as NewMemory["type"])}
+			/>
 			<Text>Content</Text>
 			<TextInput
 				placeholder="Content"
