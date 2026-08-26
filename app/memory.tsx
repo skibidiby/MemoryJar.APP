@@ -41,13 +41,13 @@ function useMemoryParticleTransition(memoryId: number, animateOut: () => void) {
 	const navigation = useNavigation();
 	const destinationRef = useRef<View>(null);
 	const reversingRef = useRef(false);
-	const { activeMemoryId, cancelTransition, registerDestination, reverseTransition } = useMemoryTransition();
+	const { activeMemoryId, registerDestination, requestReturn } = useMemoryTransition();
 	const hasSharedParticle = activeMemoryId === memoryId;
 
 	const measureDestination = useCallback(() => {
 		if (!hasSharedParticle) return;
 		destinationRef.current?.measureInWindow((x, y, width, height) => {
-			registerDestination(memoryId, { x, y, width, height });
+			registerDestination(memoryId, { x, y, width, height, angle: 0 });
 		});
 	}, [hasSharedParticle, memoryId, registerDestination]);
 
@@ -55,12 +55,11 @@ function useMemoryParticleTransition(memoryId: number, animateOut: () => void) {
 		if (reversingRef.current) return;
 		reversingRef.current = true;
 		animateOut();
-		void reverseTransition().then(() => {
-			requestAnimationFrame(() => {
-				navigation.dispatch(action);
-				requestAnimationFrame(cancelTransition);
-			});
-		});
+		if (!requestReturn(memoryId)) {
+			reversingRef.current = false;
+			return;
+		}
+		requestAnimationFrame(() => navigation.dispatch(action));
 	});
 
 	const goBack = useCallback(() => router.back(), []);
