@@ -1,15 +1,18 @@
-import { View } from "react-native";
+import { StyleProp, View, ViewStyle } from "react-native";
 import WarmIcon from "@/assets/icons/Warm.svg";
 import CalmIcon from "@/assets/icons/Calm.svg";
 import FuzzyIcon from "@/assets/icons/Fuzzy.svg";
-interface ParticleProps {
-	type: "WARM" | "CALM" | "FUZZY";
+import type { NumberProp } from "react-native-svg";
+export type ParticleType = "WARM" | "CALM" | "FUZZY";
+
+export interface ParticleProps {
+	type: ParticleType;
 	id: number;
-	size?: number;
-	style?: object;
+	size?: NumberProp;
+	style?: StyleProp<ViewStyle>;
 }
 
-const ParticleIcon = ({ type, width, height }: { type: ParticleProps["type"]; width?: number; height?: number }) => {
+const ParticleIcon = ({ type, width, height }: { type: ParticleProps["type"]; width?: NumberProp; height?: NumberProp }) => {
 	switch (type) {
 		case "WARM":
 			return <WarmIcon width={width} height={height} />;

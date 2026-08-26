@@ -1,5 +1,4 @@
 import { useMigrations } from "drizzle-orm/expo-sqlite/migrator";
-import { SQLiteProvider } from "expo-sqlite";
 import React from "react";
 import { Text, View } from "react-native";
 import AddMemory from "../components/AddMemory/AddMemory";
@@ -12,17 +11,15 @@ export default function Index() {
 	if (error) return <Text>Migration error: {error.message}</Text>;
 	if (!success) return <Text>Setting up database...</Text>;
 	return (
-		<SQLiteProvider databaseName="db.db" options={{ enableChangeListener: true }}>
-			<View
-				style={{
-					flex: 1,
-					justifyContent: "center",
-					alignItems: "center",
-				}}
-			>
-				<AddMemory />
-				<MemoryJar />
-			</View>
-		</SQLiteProvider>
+		<View
+			style={{
+				flex: 1,
+				justifyContent: "center",
+				alignItems: "center",
+			}}
+		>
+			<AddMemory />
+			<MemoryJar />
+		</View>
 	);
 }
