@@ -8,7 +8,7 @@ import { useIsFocused } from "@react-navigation/native";
 import { router } from "expo-router";
 import { Accelerometer, DeviceMotion, DeviceMotionOrientation } from "expo-sensors";
 import Matter from "matter-js";
-import { RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { LayoutChangeEvent, Platform, Pressable, StyleSheet, View } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue } from "react-native-reanimated";
 
@@ -24,8 +24,11 @@ const PHYSICS_STEP = 1000 / 60;
 const MAX_FRAME_DELTA = 50;
 
 type Memory = typeof memories.$inferSelect;
-type ParticlePosition = { x: number; y: number; angle: number };
 type JarSize = { width: number; height: number };
+
+export type MemoryJarHandle = {
+	openRandomMemory: () => void;
+};
 
 const dimensionsForType = (type: string): ParticleDimensions =>
 	PARTICLE_DIMENSIONS[type as ParticleType] ?? PARTICLE_DIMENSIONS.WARM;
@@ -58,20 +61,16 @@ const MemoryParticle = ({
 	memory,
 	body,
 	engine,
-	freezeBody,
-	releaseBody,
-	jarRef,
 	dimensions,
+	openMemory,
 }: {
 	memory: Memory;
 	body: Matter.Body;
 	engine: Matter.Engine;
-	freezeBody: (id: number) => ParticlePosition | null;
-	releaseBody: () => void;
-	jarRef: RefObject<View | null>;
 	dimensions: ParticleDimensions;
+	openMemory: (memory: Memory) => void;
 }) => {
-	const { activeMemoryId, beginTransition, isAnimating } = useMemoryTransition();
+	const { activeMemoryId, isAnimating } = useMemoryTransition();
 	const x = useSharedValue(body.position.x);
 	const y = useSharedValue(body.position.y);
 	const angle = useSharedValue(body.angle);
@@ -92,30 +91,9 @@ const MemoryParticle = ({
 		transform: [{ rotate: `${angle.value}rad` }],
 	}));
 
-	const openMemory = () => {
-		if (isAnimating) return;
-		if (Platform.OS === "web") {
-			router.push({ pathname: "/memory", params: { id: String(memory.id) } });
-			return;
-		}
-		const bodyPosition = freezeBody(memory.id);
-		if (!bodyPosition) return;
-		jarRef.current?.measureInWindow((jarX, jarY) => {
-			const transitioning = beginTransition(memory.id, memory.type, {
-				x: jarX + bodyPosition.x - dimensions.width / 2,
-				y: jarY + bodyPosition.y - dimensions.height / 2,
-				width: dimensions.width,
-				height: dimensions.height,
-				angle: bodyPosition.angle,
-			});
-			if (!transitioning) releaseBody();
-			router.push({ pathname: "/memory", params: { id: String(memory.id) } });
-		});
-	};
-
 	return (
 		<AnimatedPressable
-			onPress={openMemory}
+			onPress={() => openMemory(memory)}
 			disabled={isAnimating}
 			style={[styles.particle, { width: dimensions.width, height: dimensions.height }, animatedStyle]}
 		>
@@ -133,7 +111,7 @@ const createWalls = ({ width, height }: JarSize) => [
 	Matter.Bodies.rectangle(width - JAR_PADDING + WALL_THICKNESS / 2, height / 2, WALL_THICKNESS, height, { isStatic: true }),
 ];
 
-const MemoryJar = () => {
+const MemoryJar = forwardRef<MemoryJarHandle>(function MemoryJar(_, ref) {
 	const { data: memoryList } = useLiveQuery(db.select().from(memories));
 	const randomSeed = useRef(Math.random());
 	const visibleMemoryList = useMemo(
@@ -147,7 +125,8 @@ const MemoryJar = () => {
 				.slice(0, MAX_PARTICLES),
 		[memoryList],
 	);
-	const { activeMemoryId, cancelTransition, returnToSource, transitionPhase } = useMemoryTransition();
+	const { activeMemoryId, beginTransition, cancelTransition, isAnimating, returnToSource, transitionPhase } =
+		useMemoryTransition();
 	const isFocused = useIsFocused();
 	const [engine] = useState(() => Matter.Engine.create({ gravity: { x: 0, y: 1, scale: 0.001 } }));
 	const bodiesRef = useRef(new Map<number, Matter.Body>());
@@ -170,6 +149,43 @@ const MemoryJar = () => {
 		Matter.Sleeping.set(frozenBodyRef.current, false);
 		frozenBodyRef.current = null;
 	}, []);
+
+	const openMemory = useCallback(
+		(memory: Memory) => {
+			if (isAnimating) return;
+			if (Platform.OS === "web") {
+				router.push({ pathname: "/memory", params: { id: String(memory.id) } });
+				return;
+			}
+			const bodyPosition = freezeBody(memory.id);
+			if (!bodyPosition) return;
+			const dimensions = dimensionsForType(memory.type);
+			jarRef.current?.measureInWindow((jarX, jarY) => {
+				const transitioning = beginTransition(memory.id, memory.type, {
+					x: jarX + bodyPosition.x - dimensions.width / 2,
+					y: jarY + bodyPosition.y - dimensions.height / 2,
+					width: dimensions.width,
+					height: dimensions.height,
+					angle: bodyPosition.angle,
+				});
+				if (!transitioning) releaseBody();
+				router.push({ pathname: "/memory", params: { id: String(memory.id) } });
+			});
+		},
+		[beginTransition, freezeBody, isAnimating, releaseBody],
+	);
+
+	useImperativeHandle(
+		ref,
+		() => ({
+			openRandomMemory: () => {
+				if (isAnimating || !visibleMemoryList.length) return;
+				const memory = visibleMemoryList[Math.floor(Math.random() * visibleMemoryList.length)];
+				openMemory(memory);
+			},
+		}),
+		[isAnimating, openMemory, visibleMemoryList],
+	);
 
 	const handleLayout = useCallback((event: LayoutChangeEvent) => {
 		const { width, height } = event.nativeEvent.layout;
@@ -346,16 +362,14 @@ const MemoryJar = () => {
 						memory={memory}
 						body={body}
 						engine={engine}
-						freezeBody={freezeBody}
-						releaseBody={releaseBody}
-						jarRef={jarRef}
 						dimensions={dimensions}
+						openMemory={openMemory}
 					/>
 				) : null;
 			})}
 		</View>
 	);
-};
+});
 
 const styles = StyleSheet.create({
 	jar: { width: "100%", height: JAR_HEIGHT, marginTop: "auto", overflow: "hidden", backgroundColor: COLORS.background },

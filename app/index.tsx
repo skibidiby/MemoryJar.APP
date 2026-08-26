@@ -6,8 +6,9 @@ import { useMigrations } from "drizzle-orm/expo-sqlite/migrator";
 import { router } from "expo-router";
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import MemoryJar from "@/components/MemoryJar/MemoryJar";
+import MemoryJar, { MemoryJarHandle } from "@/components/MemoryJar/MemoryJar";
 import migrations from "@/drizzle/migrations";
+import { useRef } from "react";
 
 type ActionBandProps = {
 	label: string;
@@ -51,14 +52,13 @@ export default function Index() {
 
 function IndexContent() {
 	const { data: memoryList } = useLiveQuery(db.select().from(memories));
+	const memoryJarRef = useRef<MemoryJarHandle>(null);
 	const { width, height } = useWindowDimensions();
 	const insets = useSafeAreaInsets();
 	const scale = Math.min(width / REFERENCE_SCREEN.width, 1);
 	const verticalOffset = Math.max(0, Math.min((height - REFERENCE_SCREEN.height) * 0.12, 28));
 	const openRandomMemory = () => {
-		if (!memoryList.length) return;
-		const memory = memoryList[Math.floor(Math.random() * memoryList.length)];
-		router.push({ pathname: "/memory", params: { id: String(memory.id) } });
+		memoryJarRef.current?.openRandomMemory();
 	};
 
 	return (
@@ -84,7 +84,7 @@ function IndexContent() {
 					disabled={!memoryList.length}
 				/>
 			</View>
-			<MemoryJar />
+			<MemoryJar ref={memoryJarRef} />
 		</View>
 	);
 }
