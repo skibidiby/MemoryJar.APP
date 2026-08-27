@@ -223,6 +223,38 @@ export default function AddMemory({ memoryId, focusLocation = false }: AddMemory
 		}
 	};
 
+	const deleteMemory = () => {
+		if (!isEditing || memoryId === undefined || isSubmitting) return;
+		Alert.alert("Delete memory?", "This memory will be permanently deleted.", [
+			{ text: "Cancel", style: "cancel" },
+			{
+				text: "Delete",
+				style: "destructive",
+				onPress: async () => {
+					setIsSubmitting(true);
+					try {
+						db.transaction((tx) => {
+							tx.delete(memoryImages).where(eq(memoryImages.memoryId, memoryId)).run();
+							tx.delete(memories).where(eq(memories.id, memoryId)).run();
+						});
+						if (originalImageUri && isAppOwnedMemoryImage(originalImageUri)) {
+							try {
+								const imageFile = new File(originalImageUri);
+								if (imageFile.exists) imageFile.delete();
+							} catch {
+								// image del failed but dont block
+							}
+						}
+						router.dismissTo("/");
+					} catch {
+						setIsSubmitting(false);
+						Alert.alert("Memory not deleted", "Something went wrong while deleting. Please try again.");
+					}
+				},
+			},
+		]);
+	};
+
 	return (
 		<>
 			<KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === "ios" ? "padding" : undefined}>
@@ -284,6 +316,19 @@ export default function AddMemory({ memoryId, focusLocation = false }: AddMemory
 						<FeelingOption type="FUZZY" label="Fuzzy" id={-1} {...ADD_MEMORY_LAYOUT.feelings.FUZZY} disabled={isSubmitting} onPress={saveMemory} />
 						<FeelingOption type="CALM" label="Calm" id={-2} {...ADD_MEMORY_LAYOUT.feelings.CALM} disabled={isSubmitting} onPress={saveMemory} />
 						<FeelingOption type="WARM" label="Warm" id={-3} {...ADD_MEMORY_LAYOUT.feelings.WARM} disabled={isSubmitting} onPress={saveMemory} />
+						{isEditing ? (
+							<Pressable
+								onPress={deleteMemory}
+								disabled={isSubmitting}
+								accessibilityRole="button"
+								accessibilityLabel="Delete memory"
+								accessibilityState={{ disabled: isSubmitting }}
+								style={styles.deleteButton}
+							>
+								<MaterialIcons name="delete-outline" size={25} color={COLORS.warm} />
+								<Text style={styles.deleteText}>Delete memory</Text>
+							</Pressable>
+						) : null}
 					</View>
 				</View>
 			</ScrollView>
@@ -448,4 +493,13 @@ const styles = StyleSheet.create({
 		lineHeight: 39,
 	},
 	feelingButton: { position: "absolute", top: ADD_MEMORY_LAYOUT.particleTop },
+	deleteButton: {
+		position: "absolute",
+		...ADD_MEMORY_LAYOUT.delete,
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "center",
+		gap: 8,
+	},
+	deleteText: { ...baseText, color: COLORS.warm, fontSize: 22, lineHeight: 28 },
 });

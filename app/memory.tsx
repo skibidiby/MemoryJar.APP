@@ -11,6 +11,7 @@ import { router, Stack, useLocalSearchParams, useNavigation } from "expo-router"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Image, LayoutChangeEvent, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const ordinal = (day: number) => {
 	const remainder100 = day % 100;
@@ -101,6 +102,7 @@ export default function Memory() {
 	const contentAnimation = useMemoryContentAnimation();
 	const particleTransition = useMemoryParticleTransition(memoryId, contentAnimation.animateOut);
 	const { width } = useWindowDimensions();
+	const insets = useSafeAreaInsets();
 	const scale = Math.min(width / REFERENCE_SCREEN.width, 1);
 	const [cardHeight, setCardHeight] = useState<number>(MEMORY_DETAIL_LAYOUT.card.minHeight);
 	const [imageAspectRatio, setImageAspectRatio] = useState<number | null>(null);
@@ -117,6 +119,11 @@ export default function Memory() {
 		);
 	}, [imageUri]);
 
+	useEffect(() => {
+		const frame = requestAnimationFrame(particleTransition.measureDestination);
+		return () => cancelAnimationFrame(frame);
+	}, [insets.bottom, insets.right, particleTransition.measureDestination, scale]);
+
 	if (!memory) return <View style={styles.screen} />;
 
 	const particleDimensions = detailParticleDimensions(memory.type);
@@ -129,8 +136,11 @@ export default function Memory() {
 	const dynamicOffset = cardExtraHeight + (photoHeight ? MEMORY_DETAIL_LAYOUT.photoGap + photoHeight : 0);
 	const locationTop = MEMORY_DETAIL_LAYOUT.location.top + dynamicOffset;
 	const feelingTop = MEMORY_DETAIL_LAYOUT.feeling.top + dynamicOffset;
-	const particleTop = MEMORY_DETAIL_LAYOUT.particle.top + dynamicOffset;
-	const canvasHeight = Math.max(REFERENCE_SCREEN.height, particleTop + particleDimensions.height + 60);
+	const feelingBottom = feelingTop + MEMORY_DETAIL_LAYOUT.feeling.lineHeight * 2 + 68;
+	const canvasHeight = Math.max(REFERENCE_SCREEN.height, feelingBottom);
+	const particleWidth = particleDimensions.width * scale;
+	const particleHeight = particleDimensions.height * scale;
+	const particleSlotSize = MEMORY_DETAIL_LAYOUT.particle.slotSize;
 	const date = new Date(memory.date);
 	const month = date.toLocaleString("en-US", { month: "long" });
 
@@ -179,36 +189,33 @@ export default function Memory() {
 							<Text style={styles.locationText}>{memory.location.trim() || "Add location"}</Text>
 						</Pressable>
 						<Text style={[styles.feeling, { top: feelingTop }]}>{memory.type.toLowerCase()}{"\n"}feeling</Text>
-						<Pressable
-							ref={particleTransition.destinationRef}
-							collapsable={false}
-							onLayout={particleTransition.measureDestination}
-							onPress={particleTransition.goBack}
-							accessibilityRole="button"
-							accessibilityLabel="Return to memory jar"
-							style={[
-								styles.destination,
-								{
-									top: particleTop,
-									left: REFERENCE_SCREEN.width - MEMORY_DETAIL_LAYOUT.particle.right - particleDimensions.width,
-									width: particleDimensions.width,
-									height: particleDimensions.height,
-								},
-							]}
-						>
-							<View style={{ opacity: particleTransition.hasSharedParticle ? 0 : 1 }}>
-								<Particle
-									type={memory.type}
-									id={memory.id}
-									width={particleDimensions.width}
-									height={particleDimensions.height}
-								/>
-							</View>
-						</Pressable>
 						</Animated.View>
 					</View>
 				</View>
 			</ScrollView>
+			<Pressable
+				onPress={particleTransition.goBack}
+				accessibilityRole="button"
+				accessibilityLabel="Return to memory jar"
+				style={[
+					styles.particleControl,
+					{
+						right: insets.right + MEMORY_DETAIL_LAYOUT.particle.right * scale,
+						bottom: insets.bottom + MEMORY_DETAIL_LAYOUT.particle.bottom * scale,
+						width: particleSlotSize,
+						height: particleSlotSize,
+					},
+				]}
+			>
+				<View
+					ref={particleTransition.destinationRef}
+					collapsable={false}
+					onLayout={particleTransition.measureDestination}
+					style={{ width: particleWidth, height: particleHeight, opacity: particleTransition.hasSharedParticle ? 0 : 1 }}
+				>
+					<Particle type={memory.type} id={memory.id} width={particleWidth} height={particleHeight} />
+				</View>
+			</Pressable>
 		</View>
 	);
 }
@@ -301,5 +308,11 @@ const styles = StyleSheet.create({
 		letterSpacing: -3,
 		paddingBottom: 8,
 	},
-	destination: { position: "absolute" },
+	particleControl: {
+		position: "absolute",
+		alignItems: "center",
+		justifyContent: "center",
+		zIndex: 10,
+		elevation: 10,
+	},
 });
