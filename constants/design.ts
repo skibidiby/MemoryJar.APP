@@ -60,6 +60,18 @@ export const ADD_MEMORY_LAYOUT = {
 	particleTop: 659,
 } as const;
 
+export const MEMORY_DETAIL_LAYOUT = {
+	date: { left: 25, top: 78, fontSize: 40 },
+	edit: { right: 20, top: 71, size: 35 },
+	card: { left: 38, top: 278, width: 318, minHeight: 148, textLeft: 67, textTop: 301, textWidth: 278 },
+	accent: { left: 16, top: 263, width: 43, height: 38 },
+	photoGap: 20,
+	photoBorderWidth: 3,
+	location: { left: 38, top: 445, iconSize: 27, textLeft: 78, fontSize: 32 },
+	feeling: { left: 29, top: 590, width: 260, fontSize: 96, lineHeight: 82 },
+	particle: { right: 15, top: 659 },
+} as const;
+
 export type ParticleDimensions = { width: number; height: number };
 
 export const PARTICLE_DIMENSIONS: Record<ParticleType, ParticleDimensions> = {

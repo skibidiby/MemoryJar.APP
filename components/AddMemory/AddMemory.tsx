@@ -4,10 +4,12 @@ import { db } from "@/db/client";
 import { memories, memoryImages } from "@/db/schema";
 import { MaterialIcons } from "@expo/vector-icons";
 import DateTimePicker, { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
+import { eq } from "drizzle-orm";
+import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { Directory, File, Paths } from "expo-file-system";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
 	Alert,
 	Image,
@@ -39,7 +41,7 @@ const MONTHS = [
 	"December",
 ] as const;
 
-type SelectedImage = ImagePicker.ImagePickerAsset;
+type SelectedImage = Pick<ImagePicker.ImagePickerAsset, "uri" | "fileName" | "mimeType">;
 
 const normalizedDate = (value: Date) => {
 	const date = new Date(value);
@@ -97,21 +99,54 @@ function FeelingOption({ type, label, id, left, labelLeft, width, height, disabl
 	);
 }
 
-export default function AddMemory() {
+type AddMemoryProps = {
+	memoryId?: number;
+	focusLocation?: boolean;
+};
+
+const isAppOwnedMemoryImage = (uri: string) => uri.includes("/memory-images/");
+
+export default function AddMemory({ memoryId, focusLocation = false }: AddMemoryProps) {
 	const { width } = useWindowDimensions();
 	const scale = Math.min(width / REFERENCE_SCREEN.width, 1);
+	const isEditing = memoryId !== undefined;
+	const editQuery = useMemo(
+		() =>
+			db
+				.select({ memory: memories, imageUri: memoryImages.imageUri })
+				.from(memories)
+				.leftJoin(memoryImages, eq(memoryImages.memoryId, memories.id))
+				.where(eq(memories.id, memoryId ?? -1)),
+		[memoryId],
+	);
+	const { data: editRecords } = useLiveQuery(editQuery, [memoryId]);
 	const [date, setDate] = useState(() => normalizedDate(new Date()));
 	const [iosDraftDate, setIosDraftDate] = useState(date);
 	const [isIosDatePickerVisible, setIsIosDatePickerVisible] = useState(false);
 	const [content, setContent] = useState("");
 	const [location, setLocation] = useState("");
 	const [selectedImage, setSelectedImage] = useState<SelectedImage | null>(null);
+	const [originalImageUri, setOriginalImageUri] = useState<string | null>(null);
 	const [isSubmitting, setIsSubmitting] = useState(false);
+	const initializedMemoryIdRef = useRef<number | null>(null);
+	const locationInputRef = useRef<TextInput>(null);
 	const canvasSize = useMemo(
 		() => ({ width: REFERENCE_SCREEN.width * scale, height: REFERENCE_SCREEN.height * scale }),
 		[scale],
 	);
 	const maximumDate = useMemo(() => new Date(), []);
+
+	useEffect(() => {
+		if (!isEditing || !editRecords[0] || initializedMemoryIdRef.current === memoryId) return;
+		const { memory, imageUri } = editRecords[0];
+		setDate(normalizedDate(new Date(memory.date)));
+		setContent(memory.content);
+		setLocation(memory.location);
+		setSelectedImage(imageUri ? { uri: imageUri } : null);
+		setOriginalImageUri(imageUri);
+		initializedMemoryIdRef.current = memoryId ?? null;
+		if (focusLocation) requestAnimationFrame(() => locationInputRef.current?.focus());
+	}, [editRecords, focusLocation, isEditing, memoryId]);
 
 	const openDatePicker = () => {
 		Keyboard.dismiss();
@@ -161,15 +196,25 @@ export default function AddMemory() {
 		setIsSubmitting(true);
 		let copiedImage: File | null = null;
 		try {
-			if (selectedImage) copiedImage = persistImage(selectedImage);
+			const imageWasReplaced = selectedImage !== null && selectedImage.uri !== originalImageUri;
+			if (imageWasReplaced && selectedImage) copiedImage = persistImage(selectedImage);
 			db.transaction((tx) => {
-				const created = tx
-					.insert(memories)
-					.values({ content: content.trim(), type, location: location.trim(), date: normalizedDate(date).getTime() })
-					.returning({ id: memories.id })
-					.get();
+				const values = { content: content.trim(), type, location: location.trim(), date: normalizedDate(date).getTime() };
+				if (isEditing && memoryId !== undefined) {
+					tx.update(memories).set(values).where(eq(memories.id, memoryId)).run();
+					if (copiedImage) {
+						tx.delete(memoryImages).where(eq(memoryImages.memoryId, memoryId)).run();
+						tx.insert(memoryImages).values({ memoryId, imageUri: copiedImage.uri }).run();
+					}
+					return;
+				}
+				const created = tx.insert(memories).values(values).returning({ id: memories.id }).get();
 				if (copiedImage) tx.insert(memoryImages).values({ memoryId: created.id, imageUri: copiedImage.uri }).run();
 			});
+			if (copiedImage && originalImageUri && isAppOwnedMemoryImage(originalImageUri)) {
+				const originalFile = new File(originalImageUri);
+				if (originalFile.exists) originalFile.delete();
+			}
 			router.back();
 		} catch {
 			if (copiedImage?.exists) copiedImage.delete();
@@ -188,7 +233,7 @@ export default function AddMemory() {
 			>
 				<View style={canvasSize}>
 					<View style={[styles.canvas, { transform: [{ scale }] }]}>
-						<Text style={styles.title}>Add memory</Text>
+						<Text style={styles.title}>{isEditing ? "Edit memory" : "Add memory"}</Text>
 						<Text pointerEvents="none" style={[styles.dateValue, styles.dayInput]}>{date.getDate()}</Text>
 						<Text pointerEvents="none" style={[styles.dateValue, styles.monthInput]}>
 							{MONTHS[date.getMonth()].slice(0, 3)}
@@ -224,6 +269,7 @@ export default function AddMemory() {
 							</Pressable>
 						</View>
 						<TextInput
+							ref={locationInputRef}
 							value={location}
 							onChangeText={setLocation}
 							placeholder="Add location"
