@@ -8,6 +8,13 @@
       "when": 1777640701793,
       "tag": "0000_next_toro",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1788019200000,
+      "tag": "0001_ensure_memory_images",
+      "breakpoints": true
     }
   ]
 }

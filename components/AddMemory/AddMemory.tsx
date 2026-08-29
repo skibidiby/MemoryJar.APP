@@ -119,7 +119,7 @@ export default function AddMemory({ memoryId, focusLocation = false }: AddMemory
 				.where(eq(memories.id, memoryId ?? -1)),
 		[memoryId],
 	);
-	const { data: editRecords } = useLiveQuery(editQuery, [memoryId]);
+	const { data: editRecords, error: editError, updatedAt: editUpdatedAt } = useLiveQuery(editQuery, [memoryId]);
 	const [date, setDate] = useState(() => normalizedDate(new Date()));
 	const [iosDraftDate, setIosDraftDate] = useState(date);
 	const [isIosDatePickerVisible, setIsIosDatePickerVisible] = useState(false);
@@ -222,6 +222,36 @@ export default function AddMemory({ memoryId, focusLocation = false }: AddMemory
 			Alert.alert("Memory not saved", "Something went wrong while saving. Please try again.");
 		}
 	};
+
+	if (isEditing && editError) {
+		return (
+			<View style={styles.loadState}>
+				<Text style={styles.loadStateText}>This memory could not be loaded.</Text>
+				<Pressable onPress={() => router.back()} accessibilityRole="button" style={styles.loadStateButton}>
+					<Text style={styles.loadStateButtonText}>Go back</Text>
+				</Pressable>
+			</View>
+		);
+	}
+
+	if (isEditing && editUpdatedAt && !editRecords[0]) {
+		return (
+			<View style={styles.loadState}>
+				<Text style={styles.loadStateText}>This memory no longer exists.</Text>
+				<Pressable onPress={() => router.back()} accessibilityRole="button" style={styles.loadStateButton}>
+					<Text style={styles.loadStateButtonText}>Go back</Text>
+				</Pressable>
+			</View>
+		);
+	}
+
+	if (isEditing && initializedMemoryIdRef.current !== memoryId) {
+		return (
+			<View style={styles.loadState}>
+				<Text style={styles.loadStateText}>Loading memory...</Text>
+			</View>
+		);
+	}
 
 	const deleteMemory = () => {
 		if (!isEditing || memoryId === undefined || isSubmitting) return;
@@ -375,6 +405,17 @@ const baseText = { fontFamily: FONT_FAMILIES.glykeRegular, color: COLORS.ink } a
 
 const styles = StyleSheet.create({
 	screen: { flex: 1, backgroundColor: COLORS.background },
+	loadState: {
+		flex: 1,
+		alignItems: "center",
+		justifyContent: "center",
+		gap: 20,
+		paddingHorizontal: 32,
+		backgroundColor: COLORS.background,
+	},
+	loadStateText: { ...baseText, fontSize: 24, lineHeight: 30, textAlign: "center" },
+	loadStateButton: { paddingHorizontal: 20, paddingVertical: 10, borderWidth: 2, borderColor: COLORS.warm },
+	loadStateButtonText: { ...baseText, color: COLORS.warm, fontSize: 20, lineHeight: 26 },
 	scrollContent: { flexGrow: 1, alignItems: "center", backgroundColor: COLORS.background },
 	canvas: {
 		position: "absolute",
