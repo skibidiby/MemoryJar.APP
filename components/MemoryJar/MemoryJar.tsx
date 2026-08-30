@@ -287,18 +287,31 @@ const MemoryJar = forwardRef<MemoryJarHandle>(function MemoryJar(_, ref) {
 			}
 		});
 		visibleMemoryList.forEach((memory) => {
-			if (bodiesRef.current.has(memory.id)) return;
+			const existingBody = bodiesRef.current.get(memory.id);
+			const existingType = (existingBody?.plugin as { memoryType?: string } | undefined)?.memoryType;
+			if (existingBody && existingType === memory.type) return;
 			const radius = radiusForType(memory.type);
 			const diameter = radius * 2;
 			const availableWidth = Math.max(0, jarSize.width - JAR_PADDING * 2 - diameter);
 			const availableSpawnHeight = Math.max(0, jarSize.height / 2 - JAR_TOP_INSET - diameter);
-			const x = JAR_PADDING + radius + Math.random() * availableWidth;
-			const y = JAR_TOP_INSET + radius + Math.random() * availableSpawnHeight;
+			const x = existingBody
+				? clamp(existingBody.position.x, JAR_PADDING + radius, jarSize.width - JAR_PADDING - radius)
+				: JAR_PADDING + radius + Math.random() * availableWidth;
+			const y = existingBody
+				? clamp(existingBody.position.y, JAR_TOP_INSET + radius, jarSize.height - JAR_PADDING - radius)
+				: JAR_TOP_INSET + radius + Math.random() * availableSpawnHeight;
+			if (existingBody) {
+				Matter.World.remove(world, existingBody);
+				bodiesRef.current.delete(memory.id);
+			}
 			const body = Matter.Bodies.circle(x, y, radius, {
 				restitution: 0.45,
 				friction: 0.08,
 				frictionAir: 0.012,
+				angle: existingBody?.angle ?? 0,
+				plugin: { memoryType: memory.type },
 			});
+			if (existingBody) Matter.Body.setVelocity(body, existingBody.velocity);
 			bodiesRef.current.set(memory.id, body);
 			Matter.World.add(world, body);
 			bodiesChanged = true;

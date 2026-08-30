@@ -1,19 +1,8 @@
 import AddMemory from "@/components/AddMemory/AddMemory";
-import { COLORS } from "@/constants/design";
-import { StyleSheet, View } from "react-native";
+import { useLocalSearchParams } from "expo-router";
 
 export default function AddMemoryScreen() {
-	return (
-		<View style={styles.container}>
-			<AddMemory />
-		</View>
-	);
+	const { id, focus } = useLocalSearchParams<{ id?: string; focus?: string }>();
+	const memoryId = id ? Number(id) : undefined;
+	return <AddMemory memoryId={Number.isFinite(memoryId) ? memoryId : undefined} focusLocation={focus === "location"} />;
 }
-
-const styles = StyleSheet.create({
-	container: {
-		flex: 1,
-		backgroundColor: COLORS.background,
-		padding: 24,
-	},
-});
