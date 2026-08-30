@@ -4,6 +4,7 @@ import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { SQLiteProvider } from "expo-sqlite";
+import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
@@ -21,6 +22,7 @@ export default function RootLayout() {
 
 	return (
 		<SQLiteProvider databaseName="db.db" options={{ enableChangeListener: true }}>
+			<StatusBar style="dark" />
 			<MemoryTransitionProvider>
 				<Stack initialRouteName="index">
 					<Stack.Screen name="index" options={{ headerShown: false }} />
