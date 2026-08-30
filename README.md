@@ -37,3 +37,17 @@ npm run ios
 npm run web
 npm run lint
 ```
+
+## License
+
+The source code in this repository is licensed under the [GNU General Public License v3.0](LICENSE).
+
+### Design & Visual Assets
+
+The GPL-3.0 license applies to the source code, but does **not** grant rights to the app's original branding or visual assets.
+
+Unless otherwise stated, the app's logo, icon, illustrations, graphics, and other original visual assets are © 2026 Victor Tsenov. All rights reserved.
+
+You may study, modify, and redistribute the source code under the terms of the GPL-3.0. Use of the original branding and visual assets in derivative applications or other products requires separate permission.
+
+The general ideas, techniques, and concepts demonstrated by this project are, of course, free to learn from and build upon.
