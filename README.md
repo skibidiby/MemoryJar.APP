@@ -1,50 +1,29 @@
-# Welcome to your Expo app 👋
+# Memory Jar
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Memory Jar is a small personal journal for saving moments you want to remember. Each memory can include a note, date, location, photo, and a feeling: warm, calm, or fuzzy.
 
-## Get started
+Saved memories become pieces inside an interactive jar. Tap one to read it, open a random memory, or tilt your phone to move the pieces around. Everything is stored locally on the device in SQLite.
 
-1. Install dependencies
+The visual style is inspired by Scandinavian minimalism and mid-century European graphic design.
 
-   ```bash
-   npm install
-   ```
+The app is built with Expo, React Native, Expo Router, Drizzle ORM, and Matter.js.
 
-2. Start the app
+## Run it
 
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+Install the dependencies and start Expo:
 
 ```bash
-npm run reset-project
+npm install
+npm start
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Then open it in Expo Go, an Android emulator, an iOS simulator, or a web browser.
 
-## Learn more
+Other useful commands:
 
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+```bash
+npm run android
+npm run ios
+npm run web
+npm run lint
+```
